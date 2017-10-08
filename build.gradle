@@ -2,11 +2,11 @@ model {
     platforms {
         ninja(Platform) {
             generator = 'Ninja'
-            cmListsPath = './'
+            cmListsPath = './../../'
         }
         nmake(Platform) {
             generator = 'NMake Makefiles'
-            cmListsPath = './'
+            cmListsPath = './../../'
         }
     }
 }
@@ -16,17 +16,17 @@ class CmPlugin extends RuleSource {
     void platforms(ModelMap<Platform> platforms) { }
      
     @Mutate
-    void createCmBuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Platform", CmBuildTask) {
-                platform = platforms[name]
+    void createPrintArgsTask(ModelMap<Task> tasks, ModelMap<Platform> printargs) {
+        printargs.keySet().each { name -> 
+            tasks.create("${name}Platform", PrintArgs) {
+                platform = printargs[name]
             }
         }
     }
     @Mutate
     void createCmGenerateTask(ModelMap<Task> tasks, ModelMap<Platform> generators) {
         generators.keySet().each { name -> 
-            tasks.create("${name}Generate", CmExecTask) {
+            tasks.create("${name}Generate", CmGenerateTask) {
                 platform = generators[name]
             }
         }
@@ -36,6 +36,14 @@ class CmPlugin extends RuleSource {
         prebuilders.keySet().each { name -> 
             tasks.create("${name}PreBuild", prebuildTask) {
                 platform = prebuilders[name]
+            }
+        }
+    }
+    @Mutate
+    void createBuildTask(ModelMap<Task> tasks, ModelMap<Platform> builders) {
+        builders.keySet().each { name -> 
+            tasks.create("${name}Build", CmBuildTask) {
+                platform = builders[name]
             }
         }
     }
@@ -49,7 +57,7 @@ interface Platform {
     void setCmListsPath(String cmListsPath)
 }
 
-class CmBuildTask extends DefaultTask {
+class PrintArgs extends DefaultTask {
     Platform platform
     
     @TaskAction
@@ -68,16 +76,33 @@ class prebuildTask extends DefaultTask {
     }
 }
 
-class CmExecTask extends Exec {
+class CmGenerateTask extends Exec {
     Platform platform
     
-	CmExecTask() {
+	CmGenerateTask() {
         executable 'cmake'
     }
 	
     @Override
     protected void exec() {
+	
+		workingDir = "build/$platform.generator"
         args = ["-G$platform.generator", "$platform.cmListsPath"]
+        super.exec()
+    }
+}
+
+class CmBuildTask extends Exec {
+    Platform platform
+    
+	CmBuildTask() {
+        executable 'cmake'
+    }
+	
+    @Override
+    protected void exec() {
+		workingDir = "build/$platform.generator"
+        args = ['--build','.']
         super.exec()
     }
 }
