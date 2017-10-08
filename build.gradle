@@ -1,0 +1,85 @@
+model {
+    platforms {
+        ninja(Platform) {
+            generator = 'Ninja'
+            cmListsPath = './'
+        }
+        nmake(Platform) {
+            generator = 'NMake Makefiles'
+            cmListsPath = './'
+        }
+    }
+}
+
+class CmPlugin extends RuleSource {   
+    @Model
+    void platforms(ModelMap<Platform> platforms) { }
+     
+    @Mutate
+    void createCmBuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
+        platforms.keySet().each { name -> 
+            tasks.create("${name}Platform", CmBuildTask) {
+                platform = platforms[name]
+            }
+        }
+    }
+    @Mutate
+    void createCmGenerateTask(ModelMap<Task> tasks, ModelMap<Platform> generators) {
+        generators.keySet().each { name -> 
+            tasks.create("${name}Generate", CmExecTask) {
+                platform = generators[name]
+            }
+        }
+    }
+    @Mutate
+    void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> prebuilders) {
+        prebuilders.keySet().each { name -> 
+            tasks.create("${name}PreBuild", prebuildTask) {
+                platform = prebuilders[name]
+            }
+        }
+    }
+}
+
+@Managed
+interface Platform {
+    String getGenerator()
+    void setGenerator(String generator)
+    String getCmListsPath()
+    void setCmListsPath(String cmListsPath)
+}
+
+class CmBuildTask extends DefaultTask {
+    Platform platform
+    
+    @TaskAction
+    void printCommand() {
+        println "cmake -G$platform.generator $platform.cmListsPath"
+    }
+}
+
+class prebuildTask extends DefaultTask {
+    Platform platform
+    
+    @TaskAction
+    void makeDirectory() {
+	    new File("build/$platform.generator").mkdirs()  
+        //mkdir "build/$platform.generator"
+    }
+}
+
+class CmExecTask extends Exec {
+    Platform platform
+    
+	CmExecTask() {
+        executable 'cmake'
+    }
+	
+    @Override
+    protected void exec() {
+        args = ["-G$platform.generator", "$platform.cmListsPath"]
+        super.exec()
+    }
+}
+
+apply plugin: CmPlugin
