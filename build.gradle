@@ -1,16 +1,15 @@
 model {
     platforms {
         ninja(Platform) {
-            generator = 'Ninja'
-            cmListsPath = './../../'
         }
         nmake(Platform) {
             generator = 'NMake Makefiles'
-            cmListsPath = './../../'
         }
         make(Platform) {
             generator = 'Unix Makefiles'
-            cmListsPath = './../../'
+        }
+        android(Platform) {
+            toolchainFile = './../../android-toolchain.cmake'
         }
     }
 }
@@ -18,6 +17,17 @@ model {
 class CmPlugin extends RuleSource {   
     @Model
     void platforms(ModelMap<Platform> platforms) { }
+
+
+    /**
+    * Set the defaults for the platform builds
+    */
+    @Defaults
+    void setDefaults(@Each Platform platform) {
+        platform.generator = 'Ninja'
+        platform.cmListsPath = './../../'
+        platform.toolchainFile = "" 
+    }
 
     /**
     * Rule to create tasks that will print the cmake command 
@@ -32,6 +42,18 @@ class CmPlugin extends RuleSource {
     }
 
     /**
+    * Rule to create tasks that will make subdirectories for the respective build platforms   
+    */ 
+    @Mutate
+    void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
+        platforms.keySet().each { name -> 
+            tasks.create("${name}Prebuild", PrebuildTask) {
+                platformName = "${name}"
+            }
+        }
+    }
+
+    /**
     * Rule to create tasks that will generate builds  
     */ 
     @Mutate
@@ -39,18 +61,7 @@ class CmPlugin extends RuleSource {
         platforms.keySet().each { name -> 
             tasks.create("${name}Generate", CmGenerateTask) {
                 platform = platforms[name]
-            }
-        }
-    }
-
-    /**
-    * Rule to create tasks that will make subdirectories for the respective build platforms   
-    */ 
-    @Mutate
-    void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Prebuild", PrebuildTask) {
-                platform = platforms[name]
+                platformName = "${name}"
             }
         }
     }
@@ -63,6 +74,7 @@ class CmPlugin extends RuleSource {
         platforms.keySet().each { name -> 
             tasks.create("${name}Build", CmBuildTask) {
                 platform = platforms[name]
+                platformName = "${name}"
             }
         }
     }
@@ -71,8 +83,7 @@ class CmPlugin extends RuleSource {
     * Rule to set dependencies for tasks created by the above Rules    
     */ 
     @Finalize
-    void printTasks(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        println "" 
+    void setDependencies(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
         platforms.keySet().each { name->
             tasks.get("${name}Generate").dependsOn("${name}Prebuild")
             tasks.get("${name}Build").dependsOn("${name}Generate")
@@ -87,6 +98,8 @@ interface Platform {
     void setGenerator(String generator)
     String getCmListsPath()
     void setCmListsPath(String cmListsPath)
+    String getToolchainFile()
+    void setToolchainFile(String toolchainFile)
 }
 
 class PrintArgs extends DefaultTask {
@@ -94,21 +107,26 @@ class PrintArgs extends DefaultTask {
     
     @TaskAction
     void printCommand() {
-        println "cmake -G$platform.generator $platform.cmListsPath"
+        if (platform.toolchainFile.length() == 0) {
+            println "cmake -G$platform.generator $platform.cmListsPath"
+        } else {
+            println "cmake -G$platform.generator -DCMAKE_TOOLCHAIN_FILE=$platform.toolchainFile $platform.cmListsPath"
+        }
     }
 }
 
 class PrebuildTask extends DefaultTask {
-    Platform platform
-    
+    String platformName    
+
     @TaskAction
     void makeDirectory() {
-	    new File("build/$platform.generator").mkdirs()  
+	    new File("build/$platformName").mkdirs()  
     }
 }
 
 class CmGenerateTask extends Exec {
     Platform platform
+    String platformName    
     
     CmGenerateTask() {
         executable 'cmake'
@@ -117,14 +135,19 @@ class CmGenerateTask extends Exec {
     @Override
     protected void exec() {
 	
-	workingDir = "build/$platform.generator"
-        args = ["-G$platform.generator", "$platform.cmListsPath"]
+	workingDir = "build/$platformName"
+        if (platform.toolchainFile.length() == 0) {
+            args = ["-G$platform.generator", "$platform.cmListsPath"]
+        } else {
+            args = ["-G$platform.generator", "-DCMAKE_TOOLCHAIN_FILE=$platform.toolchainFile", "$platform.cmListsPath"]
+        }
         super.exec()
     }
 }
 
 class CmBuildTask extends Exec {
     Platform platform
+    String platformName    
     
     CmBuildTask() {
         executable 'cmake'
@@ -132,7 +155,7 @@ class CmBuildTask extends Exec {
 	
     @Override
     protected void exec() {
-	workingDir = "build/$platform.generator"
+        workingDir = "build/$platformName"
         args = ['--build','.']
         super.exec()
     }
