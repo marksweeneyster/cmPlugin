@@ -8,13 +8,20 @@ model {
             generator = 'NMake Makefiles'
             cmListsPath = './../../'
         }
+        make(Platform) {
+            generator = 'Unix Makefiles'
+            cmListsPath = './../../'
+        }
     }
 }
 
 class CmPlugin extends RuleSource {   
     @Model
     void platforms(ModelMap<Platform> platforms) { }
-     
+
+    /**
+    * Rule to create tasks that will print the cmake command 
+    */ 
     @Mutate
     void createPrintArgsTask(ModelMap<Task> tasks, ModelMap<Platform> printargs) {
         printargs.keySet().each { name -> 
@@ -23,6 +30,10 @@ class CmPlugin extends RuleSource {
             }
         }
     }
+
+    /**
+    * Rule to create tasks that will generate builds  
+    */ 
     @Mutate
     void createCmGenerateTask(ModelMap<Task> tasks, ModelMap<Platform> generators) {
         generators.keySet().each { name -> 
@@ -31,6 +42,10 @@ class CmPlugin extends RuleSource {
             }
         }
     }
+
+    /**
+    * Rule to create tasks that will make subdirectories for the respective build platforms   
+    */ 
     @Mutate
     void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> prebuilders) {
         prebuilders.keySet().each { name -> 
@@ -39,6 +54,10 @@ class CmPlugin extends RuleSource {
             }
         }
     }
+
+    /**
+    * Rule to create tasks that will run 'cmake --build' for the respective build platforms   
+    */ 
     @Mutate
     void createBuildTask(ModelMap<Task> tasks, ModelMap<Platform> builders) {
         builders.keySet().each { name -> 
@@ -47,6 +66,19 @@ class CmPlugin extends RuleSource {
             }
         }
     }
+
+    /**
+    * Rule to set dependencies for tasks created by the above Rules    
+    */ 
+    @Finalize
+    void printTasks(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
+        println "" 
+        platforms.keySet().each { name->
+            tasks.get("${name}Generate").dependsOn("${name}PreBuild")
+            tasks.get("${name}Build").dependsOn("${name}Generate")
+        }
+    }
+
 }
 
 @Managed
@@ -72,21 +104,20 @@ class prebuildTask extends DefaultTask {
     @TaskAction
     void makeDirectory() {
 	    new File("build/$platform.generator").mkdirs()  
-        //mkdir "build/$platform.generator"
     }
 }
 
 class CmGenerateTask extends Exec {
     Platform platform
     
-	CmGenerateTask() {
+    CmGenerateTask() {
         executable 'cmake'
     }
 	
     @Override
     protected void exec() {
 	
-		workingDir = "build/$platform.generator"
+	workingDir = "build/$platform.generator"
         args = ["-G$platform.generator", "$platform.cmListsPath"]
         super.exec()
     }
@@ -95,13 +126,13 @@ class CmGenerateTask extends Exec {
 class CmBuildTask extends Exec {
     Platform platform
     
-	CmBuildTask() {
+    CmBuildTask() {
         executable 'cmake'
     }
 	
     @Override
     protected void exec() {
-		workingDir = "build/$platform.generator"
+	workingDir = "build/$platform.generator"
         args = ['--build','.']
         super.exec()
     }
