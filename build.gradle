@@ -49,7 +49,7 @@ class CmPlugin extends RuleSource {
     @Mutate
     void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
         platforms.keySet().each { name -> 
-            tasks.create("${name}Prebuild", prebuildTask) {
+            tasks.create("${name}Prebuild", PrebuildTask) {
                 platform = platforms[name]
             }
         }
@@ -98,7 +98,7 @@ class PrintArgs extends DefaultTask {
     }
 }
 
-class prebuildTask extends DefaultTask {
+class PrebuildTask extends DefaultTask {
     Platform platform
     
     @TaskAction
