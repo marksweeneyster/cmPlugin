@@ -9,7 +9,7 @@ model {
             generator = 'Unix Makefiles'
         }
         android(Platform) {
-            toolchainFile = './../../android-toolchain.cmake'
+            toolchainFile = "${project.rootDir}/android-toolchain.cmake"
         }
     }
 }
@@ -25,8 +25,9 @@ class CmPlugin extends RuleSource {
     @Defaults
     void setDefaults(@Each Platform platform) {
         platform.generator = 'Ninja'
+        // the cmake command working directory is two levels below root
         platform.cmListsPath = './../../'
-        platform.toolchainFile = "" 
+        platform.toolchainFile = '' 
     }
 
     /**
