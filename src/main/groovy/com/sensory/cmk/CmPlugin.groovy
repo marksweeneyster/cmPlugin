@@ -5,19 +5,16 @@ import org.gradle.model.Each
 import org.gradle.model.Finalize
 import org.gradle.model.Model
 import org.gradle.model.ModelMap
-import org.gradle.model.Path
 import org.gradle.model.RuleSource
 import org.gradle.model.Mutate
 import org.gradle.api.Task
-import org.gradle.api.tasks.Exec
 
 import com.sensory.cmk.tasks.*
 
 class CmPlugin extends RuleSource {   
     @Model
     void platforms(ModelMap<Platform> platforms) { }
-
-
+    
     /**
     * Set the defaults for the platform builds
     */
@@ -26,7 +23,8 @@ class CmPlugin extends RuleSource {
         platform.generator = 'Ninja'
         // the cmake command working directory is two levels below root
         platform.cmListsPath = './../../'
-        platform.toolchainFile = '' 
+        platform.toolchainFile = ''
+        platform.operatingSystem = 'native'
     }
 
     /**
