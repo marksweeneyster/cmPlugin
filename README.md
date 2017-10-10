@@ -18,6 +18,7 @@ buildscript {
 }
 
 apply plugin: 'com.sensory.cmk'
+
 import com.sensory.cmk.Platform
 
 model {
@@ -25,7 +26,6 @@ model {
     platforms {
 
         natv(Platform)
-
 
         android(Platform) {
             toolchainFile = "${project.rootDir}/android-toolchain.cmake"
