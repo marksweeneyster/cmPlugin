@@ -10,8 +10,7 @@ buildscript {
 
     dependencies {
 
-        classpath group: 'com.sensory.cmk', name: 'CmPlugin',
-				  version: '1.0-SNAPSHOT'
+        classpath 'com.sensory.cmk:CmPlugin:1.0-SNAPSHOT'
 
     }
 
