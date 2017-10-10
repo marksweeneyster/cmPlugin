@@ -3,6 +3,11 @@
 *.idea/
 *.iml
 
+*.swp
+
+build/poms
+build/resources
+build/tmp
 # Compiled source #
 ###################
 *.com

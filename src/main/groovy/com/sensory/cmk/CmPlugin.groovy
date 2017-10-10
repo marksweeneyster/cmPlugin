@@ -7,9 +7,11 @@ import org.gradle.model.Model
 import org.gradle.model.ModelMap
 import org.gradle.model.Path
 import org.gradle.model.RuleSource
+import org.gradle.model.Mutate
+import org.gradle.api.Task
 import org.gradle.api.tasks.Exec
 
-import com.sensory.cmk.tasks
+import com.sensory.cmk.tasks.*
 
 class CmPlugin extends RuleSource {   
     @Model
@@ -89,60 +91,3 @@ class CmPlugin extends RuleSource {
     }
 
 }
-
-@Managed
-interface Platform {
-    String getGenerator()
-    void setGenerator(String generator)
-    String getCmListsPath()
-    void setCmListsPath(String cmListsPath)
-    String getToolchainFile()
-    void setToolchainFile(String toolchainFile)
-}
-
-class PrebuildTask extends DefaultTask {
-    String platformName    
-
-    @TaskAction
-    void makeDirectory() {
-	    new File("build/$platformName").mkdirs()  
-    }
-}
-
-class CmGenerateTask extends Exec {
-    Platform platform
-    String platformName    
-    
-    CmGenerateTask() {
-        executable 'cmake'
-    }
-	
-    @Override
-    protected void exec() {
-	
-	workingDir = "build/$platformName"
-        if (platform.toolchainFile.length() == 0) {
-            args = ["-G$platform.generator", "$platform.cmListsPath"]
-        } else {
-            args = ["-G$platform.generator", "-DCMAKE_TOOLCHAIN_FILE=$platform.toolchainFile", "$platform.cmListsPath"]
-        }
-        super.exec()
-    }
-}
-
-class CmBuildTask extends Exec {
-    Platform platform
-    String platformName    
-    
-    CmBuildTask() {
-        executable 'cmake'
-    }
-	
-    @Override
-    protected void exec() {
-        workingDir = "build/$platformName"
-        args = ['--build','.']
-        super.exec()
-    }
-}
-
