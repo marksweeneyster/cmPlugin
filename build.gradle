@@ -1,136 +1,96 @@
 model {
-    platforms {
-        ninja(Platform) 
-
-       otherAndroid(Platform) {
-            toolchainFile = "${project.rootDir}/android-toolchain.cmake"
+    components {
+        android(CmakeComponent) {
+            title = 'fubar'
+            arches = ['armv7','armv8','mips','x86'] 
+            toolchainFile = 'android-toolchain.cmake' 
+        }
+        ios(CmakeComponent) {
+            title = 'itJustWorks'
+            arches = ['x86','x86_64'] 
+        }
+        natv(CmakeComponent) {
+            title = 'gabbaGabbaHeh'
+            arches = ['x86_64'] 
         }
     }
-    operatingSystems {
-        ios(OpSys) 
+}
+apply plugin: 'maven-publish'
+publishing {
+    publications {
+        mavenAndroid(MavenPublication) {
+            //from components.android
+        }
     }
 }
 
 class CmPlugin extends RuleSource {   
-    @Model
-    void platforms(ModelMap<Platform> platforms) { }
-
-    @Model
-    void operatingSystems(ModelMap<OpSys> operatingSystems) {
-        operatingSystems.create("${OpSys.ANDROID}")
+    @ComponentType
+    void registerComponent(TypeBuilder<CmakeComponent> builder) {
     }
 
-    @Mutate
-    void andConfigures(@Path(OpSys.ANDROIDMODELPATH) ModelMap<Platform> platforms) {
-        platforms.create('armv7') {
-            toolchainFile = '../../android-toolchain.cmake'
-            opSystem =      'Android'
-        } 
-        platforms.create('armv8') { 
-            toolchainFile='../../android-toolchain.cmake'
-            opSystem =      'Android'
-        } 
-        platforms.create('x86') { 
-            toolchainFile='../../android-toolchain.cmake'
-            opSystem =      'Android'
-        } 
-    }       
-
-    @Finalize
-    void setAndroidTasks(ModelMap<Task> tasks, @Path(OpSys.ANDROIDMODELPATH) ModelMap<Platform> platforms) {
-        platforms.keySet().each { name->
-            tasks.create("${name}Command", PrintArgs) {
-                platform = platforms[name]
-            }
-            tasks.create("${name}Prebuild", PrebuildTask) {
-                platformName = "${name}"
-            }
-            tasks.create("${name}Generate", CmGenerateTask) {
-                platform = platforms[name]
-                platformName = "${name}"
-            }
-            tasks.create("${name}Build", CmBuildTask) {
-                platform = platforms[name]
-                platformName = "${name}"
-            }
-            tasks.get("${name}Generate").dependsOn("${name}Prebuild")
-            tasks.get("${name}Build").dependsOn("${name}Generate")
-        }
+    @ComponentType
+    void registerBinary(TypeBuilder<CmakeBinary> builder) {
     }
 
-    /**
-    * Set the defaults for the platform builds
-    */
     @Defaults
-    void setDefaults(@Each Platform platform) {
-        platform.generator = 'Ninja'
+    void setDefaults(@Each CmakeBinary cmakeBinary) {
+        cmakeBinary.generator = 'Ninja'
         // the cmake command working directory is two levels below root
-        platform.cmListsPath = './../../'
-        platform.toolchainFile = '' 
-        platform.opSystem = 'Native' 
+        cmakeBinary.cmListsPath = './../../'
+        cmakeBinary.toolchainFile = '' 
     }
 
-    /**
-    * Rule to create tasks that will print the cmake command 
-    */ 
-    @Mutate
-    void createPrintArgsTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Command", PrintArgs) {
-                platform = platforms[name]
+    @ComponentBinaries
+    void createBinariesForBinaryComponent(ModelMap<CmakeBinary> binaries, CmakeComponent library) {
+        library.arches.each { architecture->
+            binaries.create(architecture) {
+                arch = architecture;
+                os = library.name 
             }
         }
     }
 
-    /**
-    * Rule to create tasks that will make subdirectories for the respective build platforms   
-    */ 
-    @Mutate
-    void createPrebuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Prebuild", PrebuildTask) {
-                platformName = "${name}"
-            }
-        }
-    }
+    @BinaryTasks
+    void createCmakeTasks(ModelMap<Task> tasks, CmakeBinary binary) {
 
-    /**
-    * Rule to create tasks that will generate builds  
-    */ 
-    @Mutate
-    void createCmGenerateTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Generate", CmGenerateTask) {
-                platform = platforms[name]
-                platformName = "${name}"
-            }
-        }
-    }
+        String mkr = binary.tasks.taskName("mkdirs", "build")
+        String gnr = binary.tasks.taskName("generate", "build")
+        String rnr = binary.tasks.taskName("run", "build")
 
-    /**
-    * Rule to create tasks that will run 'cmake --build' for the respective build platforms   
-    */ 
-    @Mutate
-    void createBuildTask(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name -> 
-            tasks.create("${name}Build", CmBuildTask) {
-                platform = platforms[name]
-                platformName = "${name}"
-            }
+        tasks.create(mkr,PrebuildTask){
+            it.operatingSystem = binary.os;
+            it.architecture = binary.arch;
         }
-    }
+        tasks.create(gnr, CmGenerateTask){
+            it.operatingSystem = binary.os;
+            it.architecture = binary.arch;
+            it.generator    = binary.generator;
+            it.cmListsPath  = "${it.project.rootDir}"
+            it.toolchainFile = binary.toolchainFile.length() > 0 ? "${it.project.buildDir}/${binary.toolchainFile}" : ''
+        }
+        tasks.create(rnr, CmBuildTask){
+            it.operatingSystem = binary.os;
+            it.architecture = binary.arch;
+        }
 
-    /**
-    * Rule to set dependencies for tasks created by the above Rules    
-    */ 
+        tasks.get(gnr).dependsOn(mkr)
+        tasks.get(rnr).dependsOn(gnr)
+
+     }
+/*
     @Finalize
-    void setDependencies(ModelMap<Task> tasks, ModelMap<Platform> platforms) {
-        platforms.keySet().each { name->
-            tasks.get("${name}Generate").dependsOn("${name}Prebuild")
-            tasks.get("${name}Build").dependsOn("${name}Generate")
+    void setTaskDependencies(ModelMap<CmakeComponent> libraries) {
+        libraries.keySet().each { library ->
+            library.getBinaries().keySet().each { key->
+               binary = library.getBinaries()[key]
+               binName = binary.name.capitalize()
+               binary.tasks.get("generate${binName}Build").dependsOn("mkdirs${binName}Build")
+               binary.tasks.get("build${binName}Build").dependsOn("generate${binName}Build")
+            }
         }
     }
-
+*/
 }
 
 @Managed
@@ -148,13 +108,21 @@ interface Platform {
     void setOpSystem(String opSystem)
 }
 
-
 @Managed
 interface OpSys {
     static final String ANDROID='android'
     static final String ANDROIDMODELPATH='operatingSystems.android.platforms'
 
     ModelMap<Platform> getPlatforms()
+}
+
+class CmakeStubTask extends DefaultTask {
+    @Input String content
+    @Input String architecture
+
+    @TaskAction void paint(){
+        println " >>> title: ${content}, arch:${architecture}" 
+    } 
 }
 
 class PrintArgs extends DefaultTask {
@@ -171,17 +139,22 @@ class PrintArgs extends DefaultTask {
 }
 
 class PrebuildTask extends DefaultTask {
-    String platformName    
+    @Input String operatingSystem 
+    @Input String architecture
 
     @TaskAction
     void makeDirectory() {
-	    new File("build/$platformName").mkdirs()  
+        new File("${project.buildDir}/$operatingSystem/$architecture").mkdirs()
     }
 }
 
 class CmGenerateTask extends Exec {
-    Platform platform
-    String platformName    
+    //Platform platform
+    @Input String operatingSystem 
+    @Input String architecture
+    @Input String generator    
+    @Input String cmListsPath    
+    @Input String toolchainFile    
     
     CmGenerateTask() {
         executable 'cmake'
@@ -190,19 +163,20 @@ class CmGenerateTask extends Exec {
     @Override
     protected void exec() {
 	
-	workingDir = "build/$platformName"
-        if (platform.toolchainFile.length() == 0) {
-            args = ["-G$platform.generator", "$platform.cmListsPath"]
+	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
+        new File("${project.buildDir}/$operatingSystem/$architecture").mkdirs()
+        if (toolchainFile.length() == 0) {
+            args = ["-G$generator", "$cmListsPath"]
         } else {
-            args = ["-G$platform.generator", "-DCMAKE_TOOLCHAIN_FILE=$platform.toolchainFile", "$platform.cmListsPath"]
+            args = ["-G$generator", "-DCMAKE_TOOLCHAIN_FILE=$toolchainFile", "$cmListsPath"]
         }
         super.exec()
     }
 }
 
 class CmBuildTask extends Exec {
-    Platform platform
-    String platformName    
+    @Input String operatingSystem 
+    @Input String architecture
     
     CmBuildTask() {
         executable 'cmake'
@@ -210,10 +184,50 @@ class CmBuildTask extends Exec {
 	
     @Override
     protected void exec() {
-        workingDir = "build/$platformName"
+	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
         args = ['--build','.']
         super.exec()
     }
 }
+////////    COMPONENT STUFF
+
+@Managed
+interface CmakeComponent extends LibrarySpec {
+    String getTitle()
+    void setTitle(String title)
+
+    List<String> getArches()
+    void setArches(List<String> arches)
+
+    String getGenerator()
+    void setGenerator(String generator)
+
+    String getCmListsPath()
+    void setCmListsPath(String cmListsPath)
+
+    String getToolchainFile()
+    void setToolchainFile(String toolchainFile)
+}
+
+@Managed
+interface CmakeBinary extends BinarySpec {
+    String getOs()
+    void setOs(String title)
+
+    String getArch()
+    void setArch(String arch)
+
+    String getGenerator()
+    void setGenerator(String generator)
+
+    String getCmListsPath()
+    void setCmListsPath(String cmListsPath)
+
+    String getToolchainFile()
+    void setToolchainFile(String toolchainFile)
+}
+
+
 
 apply plugin: CmPlugin
+
