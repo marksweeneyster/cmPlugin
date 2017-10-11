@@ -1,16 +1,13 @@
 model {
     platforms {
         ninja(Platform) 
-		
-        nmake(Platform) {
-            generator = 'NMake Makefiles'
-        }
-        make(Platform) {
-            generator = 'Unix Makefiles'
-        }
-        android(Platform) {
+
+       otherAndroid(Platform) {
             toolchainFile = "${project.rootDir}/android-toolchain.cmake"
         }
+    }
+    operatingSystems {
+        ios(OpSys) 
     }
 }
 
@@ -18,6 +15,48 @@ class CmPlugin extends RuleSource {
     @Model
     void platforms(ModelMap<Platform> platforms) { }
 
+    @Model
+    void operatingSystems(ModelMap<OpSys> operatingSystems) {
+        operatingSystems.create("${OpSys.ANDROID}")
+    }
+
+    @Mutate
+    void andConfigures(@Path(OpSys.ANDROIDMODELPATH) ModelMap<Platform> platforms) {
+        platforms.create('armv7') {
+            toolchainFile = '../../android-toolchain.cmake'
+            opSystem =      'Android'
+        } 
+        platforms.create('armv8') { 
+            toolchainFile='../../android-toolchain.cmake'
+            opSystem =      'Android'
+        } 
+        platforms.create('x86') { 
+            toolchainFile='../../android-toolchain.cmake'
+            opSystem =      'Android'
+        } 
+    }       
+
+    @Finalize
+    void setAndroidTasks(ModelMap<Task> tasks, @Path(OpSys.ANDROIDMODELPATH) ModelMap<Platform> platforms) {
+        platforms.keySet().each { name->
+            tasks.create("${name}Command", PrintArgs) {
+                platform = platforms[name]
+            }
+            tasks.create("${name}Prebuild", PrebuildTask) {
+                platformName = "${name}"
+            }
+            tasks.create("${name}Generate", CmGenerateTask) {
+                platform = platforms[name]
+                platformName = "${name}"
+            }
+            tasks.create("${name}Build", CmBuildTask) {
+                platform = platforms[name]
+                platformName = "${name}"
+            }
+            tasks.get("${name}Generate").dependsOn("${name}Prebuild")
+            tasks.get("${name}Build").dependsOn("${name}Generate")
+        }
+    }
 
     /**
     * Set the defaults for the platform builds
@@ -28,6 +67,7 @@ class CmPlugin extends RuleSource {
         // the cmake command working directory is two levels below root
         platform.cmListsPath = './../../'
         platform.toolchainFile = '' 
+        platform.opSystem = 'Native' 
     }
 
     /**
@@ -97,10 +137,24 @@ class CmPlugin extends RuleSource {
 interface Platform {
     String getGenerator()
     void setGenerator(String generator)
+
     String getCmListsPath()
     void setCmListsPath(String cmListsPath)
+
     String getToolchainFile()
     void setToolchainFile(String toolchainFile)
+
+    String getOpSystem()
+    void setOpSystem(String opSystem)
+}
+
+
+@Managed
+interface OpSys {
+    static final String ANDROID='android'
+    static final String ANDROIDMODELPATH='operatingSystems.android.platforms'
+
+    ModelMap<Platform> getPlatforms()
 }
 
 class PrintArgs extends DefaultTask {
