@@ -3,7 +3,7 @@ model {
         android(CmakeComponent) {
             title = 'fubar'
             arches = ['armv7','armv8','mips','x86'] 
-            toolchainFile = 'android-toolchain.cmake' 
+            toolchainFile = 'platforms/android/android-toolchain.cmake' 
         }
         ios(CmakeComponent) {
             title = 'itJustWorks'
