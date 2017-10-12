@@ -36,8 +36,7 @@ class CmPlugin extends RuleSource {
     @Defaults
     void setDefaults(@Each CmakeBinary cmakeBinary) {
         cmakeBinary.generator = 'Ninja'
-        // the cmake command working directory is two levels below root
-        cmakeBinary.cmListsPath = './../../'
+        cmakeBinary.cmListsPath = '../../'
         cmakeBinary.toolchainFile = '' 
     }
 
@@ -47,6 +46,7 @@ class CmPlugin extends RuleSource {
             binaries.create(architecture) {
                 arch = architecture;
                 os = library.name 
+                toolchainFile = library.toolchainFile ?: ''  
             }
         }
     }
@@ -67,7 +67,7 @@ class CmPlugin extends RuleSource {
             it.architecture = binary.arch;
             it.generator    = binary.generator;
             it.cmListsPath  = "${it.project.rootDir}"
-            it.toolchainFile = binary.toolchainFile.length() > 0 ? "${it.project.buildDir}/${binary.toolchainFile}" : ''
+            it.toolchainFile = binary.toolchainFile.length() > 0 ? "${it.project.rootDir}/${binary.toolchainFile}" : ''
         }
         tasks.create(rnr, CmBuildTask){
             it.operatingSystem = binary.os;
@@ -76,44 +76,7 @@ class CmPlugin extends RuleSource {
 
         tasks.get(gnr).dependsOn(mkr)
         tasks.get(rnr).dependsOn(gnr)
-
      }
-/*
-    @Finalize
-    void setTaskDependencies(ModelMap<CmakeComponent> libraries) {
-        libraries.keySet().each { library ->
-            library.getBinaries().keySet().each { key->
-               binary = library.getBinaries()[key]
-               binName = binary.name.capitalize()
-               binary.tasks.get("generate${binName}Build").dependsOn("mkdirs${binName}Build")
-               binary.tasks.get("build${binName}Build").dependsOn("generate${binName}Build")
-            }
-        }
-    }
-*/
-}
-
-@Managed
-interface Platform {
-    String getGenerator()
-    void setGenerator(String generator)
-
-    String getCmListsPath()
-    void setCmListsPath(String cmListsPath)
-
-    String getToolchainFile()
-    void setToolchainFile(String toolchainFile)
-
-    String getOpSystem()
-    void setOpSystem(String opSystem)
-}
-
-@Managed
-interface OpSys {
-    static final String ANDROID='android'
-    static final String ANDROIDMODELPATH='operatingSystems.android.platforms'
-
-    ModelMap<Platform> getPlatforms()
 }
 
 class CmakeStubTask extends DefaultTask {
@@ -164,7 +127,6 @@ class CmGenerateTask extends Exec {
     protected void exec() {
 	
 	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
-        new File("${project.buildDir}/$operatingSystem/$architecture").mkdirs()
         if (toolchainFile.length() == 0) {
             args = ["-G$generator", "$cmListsPath"]
         } else {
@@ -226,8 +188,6 @@ interface CmakeBinary extends BinarySpec {
     String getToolchainFile()
     void setToolchainFile(String toolchainFile)
 }
-
-
 
 apply plugin: CmPlugin
 
