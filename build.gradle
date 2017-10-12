@@ -2,12 +2,17 @@ model {
     components {
         android(CmakeComponent) {
             title = 'fubar'
-            arches = ['armv7','armv8','mips','x86'] 
-            toolchainFile = 'platforms/android/android-toolchain.cmake' 
+            arches = ['arm','arm64','x86','x86_64'] 
+            //toolchainFile = 'platforms/android/android-toolchain.cmake' 
         }
         ios(CmakeComponent) {
             title = 'itJustWorks'
-            arches = ['x86','x86_64'] 
+            arches = ['armv7','armv7s','arm64','x86_64','i386']
+            //toolchainFile = 'platforms/ios/iOS-toolchain.cmake' 
+        }
+        tizen(CmakeComponent) {
+            title = 'tizen'
+            arches = ['armv7l'] 
         }
         natv(CmakeComponent) {
             title = 'gabbaGabbaHeh'
@@ -54,38 +59,36 @@ class CmPlugin extends RuleSource {
     @BinaryTasks
     void createCmakeTasks(ModelMap<Task> tasks, CmakeBinary binary) {
 
-        String mkr = binary.tasks.taskName("mkdirs", "build")
-        String gnr = binary.tasks.taskName("generate", "build")
-        String rnr = binary.tasks.taskName("run", "build")
+        String makr = binary.tasks.taskName("mkdirs", "build")
+        String genr = binary.tasks.taskName("generate", "build")
+        String runr = binary.tasks.taskName("run", "build")
+        String inst = binary.tasks.taskName("install", "build")
 
-        tasks.create(mkr,PrebuildTask){
+        tasks.create(makr,PrebuildTask){
             it.operatingSystem = binary.os;
             it.architecture = binary.arch;
         }
-        tasks.create(gnr, CmGenerateTask){
+        tasks.create(genr, CmGenerateTask){
             it.operatingSystem = binary.os;
             it.architecture = binary.arch;
             it.generator    = binary.generator;
             it.cmListsPath  = "${it.project.rootDir}"
             it.toolchainFile = binary.toolchainFile.length() > 0 ? "${it.project.rootDir}/${binary.toolchainFile}" : ''
+            it.installPath  = "${it.project.buildDir}/platform/${it.operatingSystem}/${it.architecture}"
         }
-        tasks.create(rnr, CmBuildTask){
+        tasks.create(runr, CmBuildTask){
+            it.operatingSystem = binary.os;
+            it.architecture = binary.arch;
+        }
+        tasks.create(inst, NinjaInstallTask){
             it.operatingSystem = binary.os;
             it.architecture = binary.arch;
         }
 
-        tasks.get(gnr).dependsOn(mkr)
-        tasks.get(rnr).dependsOn(gnr)
+        tasks.get(genr).dependsOn(makr)
+        tasks.get(runr).dependsOn(genr)
+        tasks.get(inst).dependsOn(runr)
      }
-}
-
-class CmakeStubTask extends DefaultTask {
-    @Input String content
-    @Input String architecture
-
-    @TaskAction void paint(){
-        println " >>> title: ${content}, arch:${architecture}" 
-    } 
 }
 
 class PrintArgs extends DefaultTask {
@@ -112,12 +115,12 @@ class PrebuildTask extends DefaultTask {
 }
 
 class CmGenerateTask extends Exec {
-    //Platform platform
     @Input String operatingSystem 
     @Input String architecture
     @Input String generator    
     @Input String cmListsPath    
     @Input String toolchainFile    
+    @Input String installPath    
     
     CmGenerateTask() {
         executable 'cmake'
@@ -128,9 +131,12 @@ class CmGenerateTask extends Exec {
 	
 	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
         if (toolchainFile.length() == 0) {
-            args = ["-G$generator", "$cmListsPath"]
+            String cflags ="-D" + operatingSystem.toUpperCase() + "=1 -DARCH=$architecture " 
+            args = ["-G$generator",  "-DCMAKE_INSTALL_PREFIX=$installPath", cflags, "$cmListsPath"]
         } else {
-            args = ["-G$generator", "-DCMAKE_TOOLCHAIN_FILE=$toolchainFile", "$cmListsPath"]
+            String osFlag = "-D" + operatingSystem.toUpperCase() + "=1";
+            String cflags ="-DCMAKE_TOOLCHAIN_FILE=$toolchainFile -DARCH=$architecture " + osFlag 
+            args = ["-G$generator", cflags, "$cmListsPath"]
         }
         super.exec()
     }
@@ -148,6 +154,22 @@ class CmBuildTask extends Exec {
     protected void exec() {
 	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
         args = ['--build','.']
+        super.exec()
+    }
+}
+
+class NinjaInstallTask extends Exec {
+    @Input String operatingSystem 
+    @Input String architecture
+    
+    NinjaInstallTask() {
+        executable 'ninja'
+    }
+	
+    @Override
+    protected void exec() {
+	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
+        args = ['install']
         super.exec()
     }
 }

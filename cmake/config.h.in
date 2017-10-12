@@ -1,0 +1,10 @@
+#pragma once
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+   #include <features.h>
+#endif
+
+#if defined(__GLIBC__) && !defined(__arm__) && !defined(__aarch64__) && !defined(TIZEN)
+   #include "cmake/libcwrap-2.12.h"
+#endif
+

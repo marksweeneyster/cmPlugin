@@ -1,0 +1,73 @@
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_VERSION 1)
+
+if (NOT ARCH)
+    set(ARCH $ENV{ARCH})
+endif()
+set(ENV{ARCH} ${ARCH})
+
+if (NOT TIZEN_SDK_VERSION)
+    set(TIZEN_SDK_VERSION $ENV{TIZEN_SDK_VERSION})
+endif()
+
+if (NOT TIZEN_BUILD_TYPE)
+    set(TIZEN_BUILD_TYPE $ENV{TIZEN_BUILD_TYPE})
+endif()
+
+if (NOT TIZEN_SDK_HOME)
+    set(TIZEN_SDK_HOME $ENV{TIZEN_SDK_HOME})
+endif()
+
+# setup the SDK version, 2.4 or 2.3.1
+if (NOT DEFINED TIZEN_SDK_VERSION)
+    set(TIZEN_SDK_VERSION "2.3.1")
+endif()
+set(ENV{TIZEN_SDK_VERSION} ${TIZEN_SDK_VERSION})
+
+# setup path to tizen SDK
+if (NOT DEFINED TIZEN_SDK_HOME)
+    set(TIZEN_SDK_HOME $ENV{HOME}/tizen-studio)
+endif()
+set(ENV{TIZEN_SDK_HOME} ${TIZEN_SDK_HOME})
+
+# set the build type (mobile or wearable
+if (NOT DEFINED TIZEN_BUILD_TYPE)
+    set(TIZEN_BUILD_TYPE "mobile")
+endif()
+set(ENV{TIZEN_BUILD_TYPE} ${TIZEN_BUILD_TYPE})
+
+set(TIZEN_SDK_TOOLS ${TIZEN_SDK_HOME}/tools)
+
+# use the right gcc version for this SDK
+if ("${TIZEN_SDK_VERSION}" STREQUAL "2.3.1")
+    set(GCC_VER_SUFFIX "-4.6")
+elseif ("${TIZEN_SDK_VERSION}" STREQUAL "2.4")
+    set(GCC_VER_SUFFIX "-4.9")
+elseif ("${TIZEN_SDK_VERSION}" STREQUAL "3.0")
+    set(GCC_VER_SUFFIX "-4.6")
+endif()
+
+if ("${ARCH}" STREQUAL armv7l )
+    set(ARCH_PREFIX "arm-linux-gnueabi-")
+else()
+    set(ARCH_PREFIX "i386-linux-gnueabi-")
+endif()
+set(CMAKE_C_COMPILER     ${TIZEN_SDK_TOOLS}/${ARCH_PREFIX}gcc${GCC_VER_SUFFIX}/bin/${ARCH_PREFIX}gcc)
+set(CMAKE_CXX_COMPILER   ${TIZEN_SDK_TOOLS}/${ARCH_PREFIX}gcc${GCC_VER_SUFFIX}/bin/${ARCH_PREFIX}g++)
+
+if ("${ARCH}" STREQUAL armv7l )
+    set(CMAKE_SYSROOT ${TIZEN_SDK_HOME}/platforms/tizen-${TIZEN_SDK_VERSION}/${TIZEN_BUILD_TYPE}/rootstraps/${TIZEN_BUILD_TYPE}-${TIZEN_SDK_VERSION}-device.core)
+else()
+    set(CMAKE_SYSROOT ${TIZEN_SDK_HOME}/platforms/tizen-${TIZEN_SDK_VERSION}/${TIZEN_BUILD_TYPE}/rootstraps/${TIZEN_BUILD_TYPE}-${TIZEN_SDK_VERSION}-emulator.core)
+endif()
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
+message(STATUS "TIZEN_SDK_HOME     ${TIZEN_SDK_HOME}")
+message(STATUS "TIZEN_SDK_VERSION  ${TIZEN_SDK_VERSION}")
+message(STATUS "TIZEN_BUILD_TYPE   ${TIZEN_BUILD_TYPE}")
+message(STATUS "TIZEN_BUILD_ARCH   ${ARCH}")
+message(STATUS "TIZEN SYSROOT      ${CMAKE_SYSROOT}")
+

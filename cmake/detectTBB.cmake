@@ -1,0 +1,82 @@
+include(FindPkgConfig)
+
+macro(setup_tbb)
+    set(TBB_LIBRARIES "")
+    if(UNIX AND NOT APPLE)
+      PKG_CHECK_MODULES(TBB tbb)
+      if(TBB_FOUND)
+        set(HAVE_TBB 1)
+        if(NOT ${TBB_INCLUDE_DIRS} STREQUAL "")
+          include_directories(${TBB_INCLUDE_DIRS})
+        endif()
+        link_directories(${TBB_LIBRARY_DIRS})
+      endif()
+    endif()
+
+    if(NOT HAVE_TBB)
+
+      set(TBB_DEFAULT_INCLUDE_DIRS
+        "/opt/intel/tbb/include" "/usr/local/include" "/usr/include"
+        "C:/Program Files/Intel/TBB" "C:/Program Files (x86)/Intel/TBB"
+        "C:/Program Files (x86)/tbb/include"
+        "C:/Program Files (x86)/tbb/include"
+        "${CMAKE_INSTALL_PREFIX}/include")
+
+      find_path(TBB_INCLUDE_DIRS "tbb/tbb.h" PATHS ${TBB_INCLUDE_DIR} ${TBB_DEFAULT_INCLUDE_DIRS} DOC "The path to TBB headers")
+      if(TBB_INCLUDE_DIRS)
+
+        if(UNIX)
+          set(TBB_LIB_DIR "${TBB_INCLUDE_DIRS}/../lib" CACHE PATH "Full path of TBB library directory")
+          link_directories("${TBB_LIB_DIR}")
+        endif()
+        if(IOS)
+        elseif(ANDROID)
+          #force TBB off for Android
+          #set(TBB_LIBRARIES tbb)
+          #add_definitions(-DTBB_USE_GCC_BUILTINS)
+        elseif(APPLE)
+          set(TBB_LIBRARIES libtbb.dylib)
+        elseif (UNIX)
+          set(TBB_LIBRARIES tbb)
+        elseif (WIN32)
+          if(CMAKE_COMPILER_IS_GNUCXX)
+            set(TBB_LIB_DIR "${TBB_INCLUDE_DIRS}/../lib" CACHE PATH "Full path of TBB library directory")
+            link_directories("${TBB_LIB_DIR}")
+            set(TBB_LIBRARIES tbb)
+          else()
+            get_filename_component(_TBB_LIB_PATH "${TBB_INCLUDE_DIRS}/../lib" ABSOLUTE)
+
+            if(CMAKE_SYSTEM_PROCESSOR MATCHES amd64*|x86_64* OR MSVC64)
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/intel64")
+            else()
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/ia32")
+            endif()
+
+            if(MSVC80)
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/vc8")
+            elseif(MSVC90)
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/vc9")
+            elseif(MSVC10)
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/vc10")
+            elseif(MSVC11)
+              set(_TBB_LIB_PATH "${_TBB_LIB_PATH}/vc11")
+            endif()
+            set(TBB_LIB_DIR "${_TBB_LIB_PATH}" CACHE PATH "Full path of TBB library directory")
+            link_directories("${TBB_LIB_DIR}")
+          endif()
+        endif()
+
+        if (TBB_LIBRARIES)
+            set(HAVE_TBB 1)
+        endif()
+        if(NOT "${TBB_INCLUDE_DIRS}" STREQUAL "")
+          include_directories("${TBB_INCLUDE_DIRS}")
+        endif()
+      endif(TBB_INCLUDE_DIRS)
+    endif(NOT HAVE_TBB)
+
+    message(STATUS "HAVE_TBB = ${HAVE_TBB}")
+    message(STATUS "TBB_INCLUDE_DIRS= ${TBB_INCLUDE_DIRS}")
+    message(STATUS "TBB_LIBRARY_DIRS= ${TBB_LIBRARY_DIRS}")
+    message(STATUS "TBB_LIBRARIES   = ${TBB_LIBRARIES}")
+endmacro()
