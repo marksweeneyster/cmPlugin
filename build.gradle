@@ -1,25 +1,8 @@
+
+ext.cmakeFlags = "-DCMAKE_BUILD_TYPE=Debug -DVERSION=7"
 model {
-    components {
-        android(CmakeComponent) {
-            title = 'fubar'
-            arches = ['arm','arm64','x86','x86_64'] 
-            //toolchainFile = 'platforms/android/android-toolchain.cmake' 
-        }
-        ios(CmakeComponent) {
-            title = 'itJustWorks'
-            arches = ['armv7','armv7s','arm64','x86_64','i386']
-            //toolchainFile = 'platforms/ios/iOS-toolchain.cmake' 
-        }
-        tizen(CmakeComponent) {
-            title = 'tizen'
-            arches = ['armv7l'] 
-        }
-        natv(CmakeComponent) {
-            title = 'gabbaGabbaHeh'
-            arches = ['x86_64'] 
-        }
-    }
 }
+
 apply plugin: 'maven-publish'
 publishing {
     publications {
@@ -39,10 +22,41 @@ class CmPlugin extends RuleSource {
     }
 
     @Defaults
+    void setDefaultLibraries(ModelMap<CmakeComponent> libraries) {
+        libraries.create('android') {
+            title = 'android'
+            arches = ['arm','arm64','x86','x86_64']
+        }
+        libraries.create('ios') {
+            title = 'ios'
+            arches = ['armv7','armv7s','arm64','x86_64','i386']
+        }
+        libraries.create('tizen') {
+            title = 'tizen'
+            arches = ['armv7l','x86']
+        }
+        libraries.create('native') {
+            title = 'native'
+            arches = ['x86_64']
+        }
+        libraries.create('linux') {
+            title = 'linux'
+            arches = ['aarch64','armv7l']
+        }
+    }
+
+    @Defaults
+    void setLibraryDefaults(@Each CmakeComponent library) {
+        library.generator = 'Ninja'
+        library.cmListsPath = '../../'
+        library.toolchainFile = ''
+    }
+    @Defaults
     void setDefaults(@Each CmakeBinary cmakeBinary) {
         cmakeBinary.generator = 'Ninja'
         cmakeBinary.cmListsPath = '../../'
-        cmakeBinary.toolchainFile = '' 
+        cmakeBinary.toolchainFile = ''
+        cmakeBinary.flags = ''
     }
 
     @ComponentBinaries
@@ -75,6 +89,14 @@ class CmPlugin extends RuleSource {
             it.cmListsPath  = "${it.project.rootDir}"
             it.toolchainFile = binary.toolchainFile.length() > 0 ? "${it.project.rootDir}/${binary.toolchainFile}" : ''
             it.installPath  = "${it.project.buildDir}/platform/${it.operatingSystem}/${it.architecture}"
+
+            if (it.project.ext.has('cmakeFlags')) {
+                it.flags = it.project.ext.get('cmakeFlags')
+            } else {
+                it.flags = ''
+            }
+            it.flags += ' ' + binary.flags;
+
         }
         tasks.create(runr, CmBuildTask){
             it.operatingSystem = binary.os;
@@ -89,19 +111,6 @@ class CmPlugin extends RuleSource {
         tasks.get(runr).dependsOn(genr)
         tasks.get(inst).dependsOn(runr)
      }
-}
-
-class PrintArgs extends DefaultTask {
-    Platform platform
-    
-    @TaskAction
-    void printCommand() {
-        if (platform.toolchainFile.length() == 0) {
-            println "cmake -G$platform.generator $platform.cmListsPath"
-        } else {
-            println "cmake -G$platform.generator -DCMAKE_TOOLCHAIN_FILE=$platform.toolchainFile $platform.cmListsPath"
-        }
-    }
 }
 
 class PrebuildTask extends DefaultTask {
@@ -121,6 +130,7 @@ class CmGenerateTask extends Exec {
     @Input String cmListsPath    
     @Input String toolchainFile    
     @Input String installPath    
+    @Input String flags    
     
     CmGenerateTask() {
         executable 'cmake'
@@ -128,15 +138,21 @@ class CmGenerateTask extends Exec {
 	
     @Override
     protected void exec() {
-	
-	workingDir = "${project.buildDir}/$operatingSystem/$architecture"
+       List<String> flagList = flags.split("\\s+")
+
+        workingDir = "${project.buildDir}/$operatingSystem/$architecture"
         if (toolchainFile.length() == 0) {
-            String cflags ="-D" + operatingSystem.toUpperCase() + "=1 -DARCH=$architecture " 
-            args = ["-G$generator",  "-DCMAKE_INSTALL_PREFIX=$installPath", cflags, "$cmListsPath"]
+            String s1 = "-D" + operatingSystem.toUpperCase() + "=1"
+            String s2 = "-DARCH=$architecture"
+            String s3 = "-DCMAKE_INSTALL_PREFIX=$installPath"
+
+            List<String> flagList0 = ["-G$generator", "$cmListsPath", s1, s2, s3]
+            flagList0.addAll(flagList)
+            args = flagList0
         } else {
-            String osFlag = "-D" + operatingSystem.toUpperCase() + "=1";
-            String cflags ="-DCMAKE_TOOLCHAIN_FILE=$toolchainFile -DARCH=$architecture " + osFlag 
-            args = ["-G$generator", cflags, "$cmListsPath"]
+            String osFlag = "-D" + operatingSystem.toUpperCase() + "=1 ";
+            flags = "-DCMAKE_TOOLCHAIN_FILE=$toolchainFile -DARCH=$architecture " + flags + osFlag
+            args = ["-G$generator", flags, "$cmListsPath"]
         }
         super.exec()
     }
@@ -195,17 +211,21 @@ interface CmakeComponent extends LibrarySpec {
 
 @Managed
 interface CmakeBinary extends BinarySpec {
-    String getOs()
-    void setOs(String title)
 
     String getArch()
     void setArch(String arch)
 
+    String getCmListsPath()
+    void setCmListsPath(String cmListsPath)
+
     String getGenerator()
     void setGenerator(String generator)
 
-    String getCmListsPath()
-    void setCmListsPath(String cmListsPath)
+    String getFlags()
+    void setFlags(String flags)
+
+    String getOs()
+    void setOs(String title)
 
     String getToolchainFile()
     void setToolchainFile(String toolchainFile)
