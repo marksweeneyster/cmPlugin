@@ -1,15 +1,16 @@
 package com.sensory.cmk.tasks
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
-import com.sensory.cmk.Platform 
-
 class PrebuildTask extends DefaultTask {
-    String platformName    
+    @Input String operatingSystem
+    @Input String architecture
 
     @TaskAction
     void makeDirectory() {
-	    new File("build/$platformName").mkdirs()  
+        new File("${project.buildDir}/platform/$operatingSystem/$architecture").mkdirs()
     }
+
 }

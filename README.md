@@ -18,17 +18,13 @@ buildscript {
 
 apply plugin: 'com.sensory.cmk'
 
-import com.sensory.cmk.Platform
-
 model {
 
-    platforms {
+    components {
 
-        natv(Platform)
-
-        android(Platform) {
-            toolchainFile = "${project.rootDir}/android-toolchain.cmake"
-
+        moreAndroid(CmakeComponent) {
+            os = 'android'
+            arches = ['mips']
         }
 
     }
