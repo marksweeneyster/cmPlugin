@@ -19,7 +19,12 @@ class CmGenerateTask extends Exec {
     protected void exec() {
         List<String> flagList = flags.split("\\s+")
 
-        workingDir = "${project.buildDir}/platform/$operatingSystem/$architecture"
+        if (operatingSystem.contains("native") ) {
+            workingDir = "${project.buildDir}/platform/${project.ext.platform}"
+        } else {
+            workingDir = "${project.buildDir}/platform/$operatingSystem/$architecture"
+        }
+
         if (toolchainFile.length() == 0) {
             String os = operatingSystem
             String[] osSplits = operatingSystem.split('semi')
@@ -33,7 +38,13 @@ class CmGenerateTask extends Exec {
                 List<String> flagList0 = ["-G$generator", "$cmListsPath"]
                 flagList0.addAll(flagList)
                 args = flagList0
-            } else {
+            } else if (operatingSystem.contains("linux")) {
+                List<String> flagList0 = ["-G$generator", "$cmListsPath", s2]
+
+                flagList0.addAll(flagList)
+                args = flagList0
+            } else
+            {
                 List<String> flagList0 = ["-G$generator", "$cmListsPath", s1, s2]
                 if (generator=='Ninja' && operatingSystem.contains('android')) {
                     flagList0.add("-DCMAKE_BUILD_WITH_INSTALL_RPATH=true")

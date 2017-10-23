@@ -1,6 +1,5 @@
 package com.sensory.cmk
 
-import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.DefaultTask
@@ -23,12 +22,14 @@ class CmPlugin implements Plugin<Project> {
     @Override
     void apply(Project target) {
         File androidBuildDir = new File("${target.buildDir}/platform/android")
+        File iosBuildDir  = new File("${target.buildDir}/platform/ios")
+        File iosFramework = new File("${target.buildDir}/platform/ios/dist/lib/${target.name}.framework")
 
+        // ANDROID
         Task stageAndroid = target.tasks.create('stageAndroidLib', Copy.class){
             from "${target.rootDir}/platforms/android/aar"
             into  new File("${androidBuildDir}/aar")
         }
-
 
         Task jarAndroid = target.tasks.create('androidJar', Copy.class) {
             from ("${androidBuildDir}/dist/lib/java") {
@@ -53,6 +54,8 @@ class CmPlugin implements Plugin<Project> {
         }
         archiveAndroid.dependsOn(jarAndroid)
 
+        //IOS
+
     }
 
     static class Rules extends RuleSource {
@@ -70,8 +73,8 @@ class CmPlugin implements Plugin<Project> {
                 os = 'android'
                 arches = ['arm','arm64','x86','x86_64']
             }
-            libraries.create('semiios') {
-                os = 'semiios'
+            libraries.create('ios') {
+                os = 'ios'
                 arches = ['armv7','armv7s','arm64','x86_64','i386']
                 generator = 'Unix Makefiles'
             }
@@ -79,11 +82,11 @@ class CmPlugin implements Plugin<Project> {
                 os = 'tizen'
                 arches = ['armv7l','x86']
             }
-            libraries.create('seminative') {
-                os = 'seminative'
+            libraries.create('native') {
+                os = 'native'
                 arches = ['x86_64']
             }
-            libraries.create('semilinux') {
+            libraries.create('linux') {
                 os = 'linux'
                 arches = ['aarch64','armv7l']
             }
@@ -188,6 +191,10 @@ class CmPlugin implements Plugin<Project> {
                 if (library.os.equals('android')) {
                     String androidArchive = 'androidArchive'
                     tasks.get("${library.os}Build").finalizedBy(androidArchive)
+                }
+                if (library.os.equals('linux')) {
+                    String androidArchive = 'androidArchive'
+                    tasks.get("${library.os}Build").finalizedBy('nativeBuild')
                 }
             }
         }

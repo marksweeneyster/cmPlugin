@@ -10,6 +10,12 @@ class PrebuildTask extends DefaultTask {
 
     @TaskAction
     void makeDirectory() {
+
+        if (operatingSystem.contains("native") ) {
+            new File("${project.buildDir}/platform/${project.ext.platform}").mkdirs()
+        } else {
+            new File("${project.buildDir}/platform/$operatingSystem/$architecture").mkdirs()
+        }
         new File("${project.buildDir}/platform/$operatingSystem/$architecture").mkdirs()
     }
 

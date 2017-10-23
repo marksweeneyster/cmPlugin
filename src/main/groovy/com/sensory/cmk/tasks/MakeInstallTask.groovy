@@ -13,7 +13,11 @@ class MakeInstallTask extends Exec {
 
     @Override
     protected void exec() {
-        workingDir = "${project.buildDir}/platform/$operatingSystem/$architecture"
+        if (operatingSystem.contains("native")) {
+            workingDir = "${project.buildDir}/platform/${project.ext.platform}"
+        } else {
+            workingDir = "${project.buildDir}/platform/$operatingSystem/$architecture"
+        }
         args = ['install']
         super.exec()
     }
