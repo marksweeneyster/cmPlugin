@@ -59,6 +59,7 @@ class CmPlugin implements Plugin<Project> {
     }
 
     static class Rules extends RuleSource {
+
         @ComponentType
         void registerComponent(TypeBuilder<CmakeComponent> builder) {
         }
@@ -189,12 +190,11 @@ class CmPlugin implements Plugin<Project> {
                 }
 
                 if (library.os.equals('android')) {
-                    String androidArchive = 'androidArchive'
-                    tasks.get("${library.os}Build").finalizedBy(androidArchive)
-                }
-                if (library.os.equals('linux')) {
-                    String androidArchive = 'androidArchive'
+                    tasks.get("${library.os}Build").finalizedBy('androidArchive')
+                } else if (library.os.equals('linux')) {
                     tasks.get("${library.os}Build").finalizedBy('nativeBuild')
+                } else if (library.os.equals('ios')) {
+                    tasks.get("${library.os}Build").finalizedBy('iosFrameworkZip')
                 }
             }
         }

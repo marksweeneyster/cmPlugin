@@ -16,7 +16,6 @@ class PrebuildTask extends DefaultTask {
         } else {
             new File("${project.buildDir}/platform/$operatingSystem/$architecture").mkdirs()
         }
-        new File("${project.buildDir}/platform/$operatingSystem/$architecture").mkdirs()
     }
 
 }

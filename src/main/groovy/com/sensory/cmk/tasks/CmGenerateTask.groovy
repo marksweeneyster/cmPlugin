@@ -27,6 +27,7 @@ class CmGenerateTask extends Exec {
 
         if (toolchainFile.length() == 0) {
             String os = operatingSystem
+            // TODO get rid of this "semi" test
             String[] osSplits = operatingSystem.split('semi')
             if (osSplits.length>1) {
                 os = osSplits[1]
